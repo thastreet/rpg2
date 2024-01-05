@@ -60,7 +60,8 @@ class MyGdxGame : ApplicationAdapter() {
     override fun render() {
         ScreenUtils.clear(1f, 0f, 0f, 1f)
 
-        stateTime += Gdx.graphics.deltaTime
+        val deltaTime = Gdx.graphics.deltaTime
+        stateTime += deltaTime
 
         camera.update()
 
@@ -75,7 +76,7 @@ class MyGdxGame : ApplicationAdapter() {
             batch.draw(npcTextureRegion, npcPos.x, npcPos.y)
         }
 
-        player.draw(batch, stateTime)
+        player.draw(batch, stateTime, deltaTime)
 
         if (npcPos.y <= playerRect.y) {
             batch.draw(npcTextureRegion, npcPos.x, npcPos.y)

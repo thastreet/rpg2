@@ -14,11 +14,13 @@ class Player(
     private val moved: (rect: Rectangle) -> Unit
 ) {
     private lateinit var spritesTexture: Texture
+    private lateinit var slashTexture: Texture
     private lateinit var region: Array<Array<TextureRegion>>
     private lateinit var walkRightAnimation: Animation<TextureRegion>
     private lateinit var walkLeftAnimation: Animation<TextureRegion>
     private lateinit var walkUpAnimation: Animation<TextureRegion>
     private lateinit var walkDownAnimation: Animation<TextureRegion>
+    private lateinit var slashAnimation: Animation<TextureRegion>
     private var running = false
     private var speed = 1f
     private val movementDistance = 64
@@ -26,9 +28,18 @@ class Player(
     private var direction = Input.Keys.DOWN
     private var walking = false
     private val pos = Vector2()
+    private var attacking = false
+    private var animationTime = 0f
+
+    val rect: Rectangle
+        get() = getRect(pos.x, pos.y)
+
+    private fun getRect(x: Float, y: Float) =
+        Rectangle(x + 8, y, spritesTexture.width / 12f - 2 * 8, 16f)
 
     fun create() {
         spritesTexture = Texture(Gdx.files.internal("sprites.png"))
+        slashTexture = Texture(Gdx.files.internal("slash.png"))
 
         region = TextureRegion.split(
             spritesTexture,
@@ -40,9 +51,24 @@ class Player(
         walkLeftAnimation = Animation(walkFrameDuration, com.badlogic.gdx.utils.Array<TextureRegion>(3).apply { addAll(region[1][6], region[1][7], region[1][8]) }, Animation.PlayMode.LOOP_PINGPONG)
         walkRightAnimation = Animation(walkFrameDuration, com.badlogic.gdx.utils.Array<TextureRegion>(3).apply { addAll(region[2][6], region[2][7], region[2][8]) }, Animation.PlayMode.LOOP_PINGPONG)
         walkUpAnimation = Animation(walkFrameDuration, com.badlogic.gdx.utils.Array<TextureRegion>(3).apply { addAll(region[3][6], region[3][7], region[3][8]) }, Animation.PlayMode.LOOP_PINGPONG)
+
+        val slashRegion = TextureRegion.split(
+            slashTexture,
+            slashTexture.width / 5,
+            slashTexture.height
+        )
+        slashAnimation = Animation(1 / 20f, com.badlogic.gdx.utils.Array<TextureRegion>(5).apply {
+            addAll(slashRegion[0][0])
+            addAll(slashRegion[0][1])
+            addAll(slashRegion[0][2])
+            addAll(slashRegion[0][3])
+            addAll(slashRegion[0][4])
+        }, Animation.PlayMode.NORMAL)
     }
 
-    fun draw(batch: SpriteBatch, stateTime: Float) {
+    fun draw(batch: SpriteBatch, stateTime: Float, deltaTime: Float) {
+        animationTime += deltaTime
+
         val textureRegion = if (walking) {
             val animation = when (direction) {
                 Input.Keys.DOWN -> walkDownAnimation
@@ -64,13 +90,15 @@ class Player(
             }
         }
         batch.draw(textureRegion, pos.x, pos.y)
+
+        if (attacking) {
+            batch.draw(slashAnimation.getKeyFrame(animationTime, true), pos.x, pos.y, 64f, 64f)
+            if (slashAnimation.getKeyFrameIndex(animationTime) == slashAnimation.keyFrames.size - 1) {
+                attacking = false
+                animationTime = 0f
+            }
+        }
     }
-
-    val rect: Rectangle
-        get() = getRect(pos.x, pos.y)
-
-    private fun getRect(x: Float, y: Float) =
-        Rectangle(x + 8, y, spritesTexture.width / 12f - 2 * 8, 16f)
 
     fun afterDraw() {
         val destination = movementDistance * speed * Gdx.graphics.deltaTime
@@ -115,6 +143,10 @@ class Player(
                 walking = true
             }
 
+            Gdx.input.isKeyPressed(Input.Keys.A) -> {
+                attacking = true
+            }
+
             else -> walking = false
         }
 
@@ -124,6 +156,7 @@ class Player(
 
     fun dispose() {
         spritesTexture.dispose()
+        slashTexture.dispose()
     }
 
     companion object {
