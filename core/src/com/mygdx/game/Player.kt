@@ -9,10 +9,13 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 
-class Player(
-    private val canMove: (rect: Rectangle) -> Boolean,
-    private val moved: (rect: Rectangle) -> Unit
-) {
+class Player(private val listener: Listener) {
+    interface Listener {
+        fun canMove(rect: Rectangle): Boolean
+        fun moved(rect: Rectangle)
+        fun interceptAction(): Boolean
+    }
+
     private lateinit var spritesTexture: Texture
     private lateinit var slashTexture: Texture
     private lateinit var region: Array<Array<TextureRegion>>
@@ -25,7 +28,8 @@ class Player(
     private var speed = 1f
     private val movementDistance = 64
     private val walkFrameDuration = 1 / 6f
-    private var direction = Input.Keys.DOWN
+    var direction = Input.Keys.DOWN
+        private set
     private var walking = false
     private val pos = Vector2()
     private var attacking = false
@@ -102,11 +106,15 @@ class Player(
 
     fun afterDraw() {
         val destination = movementDistance * speed * Gdx.graphics.deltaTime
+        var notifyMoved = false
+
         when {
             Gdx.input.isKeyPressed(Input.Keys.RIGHT) -> {
-                if (canMove(getRect(pos.x + destination, pos.y))) {
+                if (listener.canMove(getRect(pos.x + destination, pos.y))) {
                     pos.x += destination
-                    moved(rect)
+                    notifyMoved = true
+                } else if (direction != Input.Keys.RIGHT) {
+                    notifyMoved = true
                 }
 
                 direction = Input.Keys.RIGHT
@@ -114,9 +122,11 @@ class Player(
             }
 
             Gdx.input.isKeyPressed(Input.Keys.LEFT) -> {
-                if (canMove(getRect(pos.x - destination, pos.y))) {
+                if (listener.canMove(getRect(pos.x - destination, pos.y))) {
                     pos.x -= destination
-                    moved(rect)
+                    notifyMoved = true
+                } else if (direction != Input.Keys.LEFT) {
+                    notifyMoved = true
                 }
 
                 direction = Input.Keys.LEFT
@@ -124,9 +134,11 @@ class Player(
             }
 
             Gdx.input.isKeyPressed(Input.Keys.UP) -> {
-                if (canMove(getRect(pos.x, pos.y + destination))) {
+                if (listener.canMove(getRect(pos.x, pos.y + destination))) {
                     pos.y += destination
-                    moved(rect)
+                    notifyMoved = true
+                } else if (direction != Input.Keys.UP) {
+                    notifyMoved = true
                 }
 
                 direction = Input.Keys.UP
@@ -134,9 +146,11 @@ class Player(
             }
 
             Gdx.input.isKeyPressed(Input.Keys.DOWN) -> {
-                if (canMove(getRect(pos.x, pos.y - destination))) {
+                if (listener.canMove(getRect(pos.x, pos.y - destination))) {
                     pos.y -= destination
-                    moved(rect)
+                    notifyMoved = true
+                } else if (direction != Input.Keys.DOWN) {
+                    notifyMoved = true
                 }
 
                 direction = Input.Keys.DOWN
@@ -144,7 +158,9 @@ class Player(
             }
 
             Gdx.input.isKeyPressed(Input.Keys.A) -> {
-                attacking = true
+                if (!listener.interceptAction()) {
+                    attacking = true
+                }
             }
 
             else -> walking = false
@@ -152,6 +168,10 @@ class Player(
 
         running = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
         speed = if (running) 2f else 1f
+
+        if (notifyMoved) {
+            listener.moved(rect)
+        }
     }
 
     fun dispose() {

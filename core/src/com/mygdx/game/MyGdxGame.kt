@@ -2,6 +2,7 @@ package com.mygdx.game
 
 import com.badlogic.gdx.ApplicationAdapter
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.Input
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
@@ -9,11 +10,10 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
-import com.badlogic.gdx.utils.Array
 import com.badlogic.gdx.utils.ScreenUtils
 
 
-class MyGdxGame : ApplicationAdapter() {
+class MyGdxGame : ApplicationAdapter(), Player.Listener {
     private lateinit var batch: SpriteBatch
     private lateinit var shapeRenderer: ShapeRenderer
     private lateinit var camera: OrthographicCamera
@@ -25,14 +25,17 @@ class MyGdxGame : ApplicationAdapter() {
             .values.none { it.overlaps(rect) }
 
     private val collisions = mutableMapOf<String, Rectangle>()
-    private val player = Player(
-        canMove = { rect -> canMove(Player.ID, rect) },
-        moved = { rect -> collisions[Player.ID] = rect }
-    )
+    private val player = Player(this)
 
     private lateinit var npcTexture: Texture
     private lateinit var npcTextureRegion: TextureRegion
     private val npcPos = Vector2(100f, 100f)
+
+    private lateinit var chestTexture: Texture
+    private lateinit var chestRegions: Array<Array<TextureRegion>>
+
+    private var facingChest = false
+    private var chestOpened = false
 
     override fun create() {
         val width = Gdx.graphics.width.toFloat()
@@ -55,6 +58,15 @@ class MyGdxGame : ApplicationAdapter() {
 
         collisions["npc"] = Rectangle(npcPos.x + 8, npcPos.y, npcTexture.width / 12f - 2 * 8, 16f)
         collisions[Player.ID] = player.rect
+
+        chestTexture = Texture(Gdx.files.internal("chest.png"))
+        chestRegions = TextureRegion.split(
+            chestTexture,
+            chestTexture.width / 46,
+            chestTexture.height / 20
+        )
+
+        collisions["chest"] = Rectangle(200f, 200f, 32f, 32f)
     }
 
     override fun render() {
@@ -69,6 +81,9 @@ class MyGdxGame : ApplicationAdapter() {
         shapeRenderer.projectionMatrix = camera.combined
 
         batch.begin()
+
+        val chestRect = collisions["chest"]!!
+        batch.draw(if (chestOpened) chestRegions[2][20] else chestRegions[2][2], chestRect.x, chestRect.y, chestRect.width, chestRect.height)
 
         val playerRect = player.rect
 
@@ -105,4 +120,28 @@ class MyGdxGame : ApplicationAdapter() {
     companion object {
         private const val DEBUG_SHAPES = false
     }
+
+    override fun canMove(rect: Rectangle): Boolean =
+        canMove(Player.ID, rect)
+
+    override fun moved(rect: Rectangle) {
+        collisions[Player.ID] = rect
+
+        facingChest = when (player.direction) {
+            Input.Keys.UP -> {
+                rect.setY(rect.y + 16)
+                collisions["chest"]!!.overlaps(rect)
+            }
+
+            else -> false
+        }
+    }
+
+    override fun interceptAction(): Boolean =
+        if (facingChest) {
+            chestOpened = true
+            true
+        } else {
+            false
+        }
 }
