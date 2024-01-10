@@ -139,7 +139,7 @@ class MyGdxGame : ApplicationAdapter(), Player.Listener {
 
     override fun interceptAction(): Boolean =
         if (facingChest) {
-            chestOpened = true
+            chestOpened = !chestOpened
             true
         } else {
             false

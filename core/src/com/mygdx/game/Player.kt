@@ -41,6 +41,8 @@ class Player(private val listener: Listener) {
     private fun getRect(x: Float, y: Float) =
         Rectangle(x + 8, y, spritesTexture.width / 12f - 2 * 8, 16f)
 
+    private val pressedKeys = mutableSetOf<Int>()
+
     fun create() {
         spritesTexture = Texture(Gdx.files.internal("sprites.png"))
         slashTexture = Texture(Gdx.files.internal("slash.png"))
@@ -71,8 +73,6 @@ class Player(private val listener: Listener) {
     }
 
     fun draw(batch: SpriteBatch, stateTime: Float, deltaTime: Float) {
-        animationTime += deltaTime
-
         val textureRegion = if (walking) {
             val animation = when (direction) {
                 Input.Keys.DOWN -> walkDownAnimation
@@ -96,6 +96,8 @@ class Player(private val listener: Listener) {
         batch.draw(textureRegion, pos.x, pos.y)
 
         if (attacking) {
+            animationTime += deltaTime
+
             batch.draw(slashAnimation.getKeyFrame(animationTime, true), pos.x, pos.y, 64f, 64f)
             if (slashAnimation.getKeyFrameIndex(animationTime) == slashAnimation.keyFrames.size - 1) {
                 attacking = false
@@ -103,6 +105,16 @@ class Player(private val listener: Listener) {
             }
         }
     }
+
+    private fun registerPressedKey(key: Int) {
+        if (Gdx.input.isKeyPressed(key)) {
+            pressedKeys.add(key)
+        } else {
+            pressedKeys.remove(key)
+        }
+    }
+
+    private fun Input.isKeyWasPressed(key: Int) = isKeyPressed(key) && !pressedKeys.contains(key)
 
     fun afterDraw() {
         val destination = movementDistance * speed * Gdx.graphics.deltaTime
@@ -157,13 +169,11 @@ class Player(private val listener: Listener) {
                 walking = true
             }
 
-            Gdx.input.isKeyPressed(Input.Keys.A) -> {
-                if (!listener.interceptAction()) {
-                    attacking = true
-                }
-            }
-
             else -> walking = false
+        }
+
+        if (Gdx.input.isKeyWasPressed(Input.Keys.A) && !listener.interceptAction()) {
+            attacking = true
         }
 
         running = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
@@ -172,6 +182,13 @@ class Player(private val listener: Listener) {
         if (notifyMoved) {
             listener.moved(rect)
         }
+
+        registerPressedKey(Input.Keys.RIGHT)
+        registerPressedKey(Input.Keys.DOWN)
+        registerPressedKey(Input.Keys.LEFT)
+        registerPressedKey(Input.Keys.UP)
+        registerPressedKey(Input.Keys.A)
+        registerPressedKey(Input.Keys.SHIFT_LEFT)
     }
 
     fun dispose() {
